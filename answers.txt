@@ -1,0 +1,13 @@
+# Answers
+# One line per picture: the picture's number, an equals sign, then the answer.
+# Leave the answer empty to show no answer for that picture.
+1=Computer Lab
+2=Garden
+3=Hallway
+4=Health Center
+5=Kitchen
+6=
+7=
+8=
+9=
+10=

@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mystery Magnifier</title>
+<style>
+:root{--ink:#2b1b5a;--sun:#ffd23f;--mint:#3ddc97;--pink:#ff5d8f;--sky:#4cc9f0;
+--bg:radial-gradient(rgba(255,255,255,.28) 4px,transparent 5px) 0 0/54px 54px,linear-gradient(160deg,#58c8ff,#a07bff)}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:"Chalkboard SE","Comic Sans MS","Arial Rounded MT Bold","Trebuchet MS",system-ui,sans-serif;color:var(--ink);display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.btn{font:inherit;font-weight:800;font-size:18px;border:4px solid var(--ink);border-radius:999px;padding:9px 20px;color:var(--ink);background:#fff;cursor:pointer;box-shadow:0 6px 0 var(--ink);transition:transform .08s,box-shadow .08s}
+.btn:active:not(:disabled){transform:translateY(5px);box-shadow:0 1px 0 var(--ink)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn:focus-visible,input:focus-visible{outline:4px solid #fff;outline-offset:3px}
+.mint{background:var(--mint)}.sun{background:var(--sun)}.pink{background:var(--pink)}.sky{background:var(--sky)}
+.xl{font-size:clamp(20px,4vw,30px);padding:12px 38px}
+header{display:flex;gap:12px;align-items:center;padding:12px 16px 8px;flex-wrap:wrap}
+footer{display:flex;gap:12px;align-items:center;justify-content:center;padding:10px 16px 20px;flex-wrap:wrap}
+.logo{font-size:26px;margin:0 auto 0 0;color:#fff;-webkit-text-stroke:.2em var(--ink);paint-order:stroke fill;text-shadow:0 .08em 0 var(--ink)}
+.pill{background:#fff;border:3px solid var(--ink);border-radius:999px;padding:4px 16px;font-weight:800;font-size:16px;margin:0}
+.pill:empty{display:none}
+#stage{position:relative;flex:1;min-height:0}
+.frame{overflow:hidden;border-radius:22px;background:#bfe;box-shadow:0 0 0 7px #fff,0 0 0 11px var(--ink),0 16px 0 11px rgba(43,27,90,.3)}
+#box{position:absolute}
+.demo{position:relative;margin:18px auto}
+.bl{position:absolute;left:0;top:0;width:100%;height:100%;display:block;max-width:none;filter:blur(var(--blur,20px)) saturate(.75);transition:filter .9s}
+#box.revealed .bl{filter:none}
+#box.snap .bl,#box.snap .answer{transition:none}
+.lens{position:absolute;left:0;top:0;pointer-events:none;will-change:transform}
+.glass,.ring{position:absolute;border-radius:50%}
+.glass{overflow:hidden;background:#000}
+.glass img{position:absolute;left:0;top:0;display:block;max-width:none}
+.ring{border:solid var(--sun);box-shadow:0 0 0 4px var(--ink),0 10px 0 4px rgba(43,27,90,.3),inset 0 0 0 3px var(--ink)}
+.ring::after{content:"";position:absolute;inset:8%;border-radius:50%;background:linear-gradient(135deg,rgba(255,255,255,.4),transparent 38%)}
+.rot{position:absolute;left:0;top:0;width:0;height:0;transform:rotate(-45deg)}
+.handle{position:absolute;border-radius:999px;background:var(--pink);border:4px solid var(--ink)}
+#big{position:absolute;inset:0;display:none;align-items:center;justify-content:center;pointer-events:none;font-size:min(34vw,34vh);color:var(--sun);-webkit-text-stroke:.12em var(--ink);paint-order:stroke fill;text-shadow:0 .06em 0 var(--ink)}
+#big.go{color:var(--mint);font-size:min(22vw,26vh)}
+#big.rdy{font-size:min(20vw,24vh)}
+#big.st{color:var(--sky)}
+.answer{position:absolute;left:0;right:0;bottom:0;padding:.45em 1em;text-align:center;color:#fff;background:rgba(43,27,90,.92);font-weight:800;transform:translateY(101%);transition:transform .5s cubic-bezier(.2,1.4,.4,1);overflow-wrap:anywhere}
+.answer b{color:var(--sun)}
+#box.revealed .answer{transform:none}
+#big.pop{display:flex;animation:pop .5s cubic-bezier(.2,1.7,.4,1)}
+@keyframes pop{from{transform:scale(.3) rotate(-8deg);opacity:0}to{transform:none;opacity:1}}
+#msg{position:absolute;left:0;right:0;bottom:6px;text-align:center;pointer-events:none}
+#msg .pill{display:inline-block}
+.screen{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(6px,1.6vh,16px);padding:16px;text-align:center;background:var(--bg)}
+.title{font-size:clamp(34px,7vw,68px);margin:0;color:#fff;-webkit-text-stroke:.2em var(--ink);paint-order:stroke fill;text-shadow:0 .08em 0 var(--ink);line-height:1.05}
+.sub{font-size:clamp(16px,2.6vw,24px);font-weight:800;margin:0}
+#introDemo{width:min(520px,80vw,calc(36vh*1.3333));aspect-ratio:4/3}
+.row{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+.modal{position:fixed;inset:0;z-index:30;display:none;align-items:center;justify-content:center;padding:12px;background:rgba(43,27,90,.6)}
+.card{background:#fff;border:5px solid var(--ink);border-radius:28px;padding:16px 22px 22px;width:min(480px,100%);max-height:100%;overflow:auto;text-align:center}
+.card h2{margin:0;font-size:28px}
+#setDemo{width:min(86%,calc(24vh*1.3333));aspect-ratio:4/3}
+.hint{margin:0 0 6px;font-size:14px;opacity:.8}
+.field{display:flex;justify-content:space-between;align-items:center;font-weight:800;margin-top:12px}
+.field b{background:var(--sun);border:3px solid var(--ink);border-radius:999px;padding:0 12px;min-width:64px}
+.card input[type=range]{width:100%;height:30px;accent-color:var(--pink)}
+.card input[type=checkbox]{width:26px;height:26px;accent-color:var(--pink)}
+#done{margin-top:16px}
+code{background:#fff;padding:1px 8px;border-radius:8px;border:2px solid var(--ink)}
+@media (prefers-reduced-motion:reduce){#big.pop{animation:none}.bl,.answer{transition:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1 class="logo">Mystery Magnifier</h1>
+  <span id="count" class="pill"></span>
+</header>
+<div id="stage">
+  <div id="box" class="frame"><img id="blur" class="bl" alt=""><div id="answer" class="answer"></div></div>
+  <div id="big"></div>
+  <div id="msg"></div>
+</div>
+<footer>
+  <button id="start" class="btn mint" disabled>▶ Start round</button>
+  <button id="reveal" class="btn sun" disabled>👀 Reveal</button>
+  <button id="next" class="btn sky" disabled>➡ Next picture</button>
+  <button id="home" class="btn" aria-label="Home">🏠</button>
+  <button id="gear" class="btn" aria-label="Settings">⚙</button>
+</footer>
+
+<section id="intro" class="screen">
+  <h1 class="title">Mystery Magnifier</h1>
+  <p class="sub">Can you guess the picture?</p>
+  <div id="introDemo" class="demo"></div>
+  <p id="status" class="pill">Looking for pictures…</p>
+  <div class="row">
+    <button id="play" class="btn mint xl" disabled>▶ Start</button>
+    <button id="openSet" class="btn sun xl">⚙ Settings</button>
+  </div>
+</section>
+
+<div id="modal" class="modal">
+  <div class="card" role="dialog" aria-label="Settings">
+    <h2>⚙ Settings</h2>
+    <div id="setDemo" class="demo"></div>
+    <p class="hint">Preview: the glass moves just like in the game.</p>
+    <div id="fields"></div>
+    <button id="done" class="btn mint xl">✔ Done</button>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const DEF={size:20,speed:5,blur:35,move:7,count:3,ready:3,sound:true};
+let S={...DEF};
+try{S={...DEF,...JSON.parse(localStorage.getItem('mystery-magnifier')||'{}')}}catch(e){}
+const save=()=>{try{localStorage.setItem('mystery-magnifier',JSON.stringify(S))}catch(e){}};
+
+/* A cheerful sample scene for the previews (never shows your real pictures) */
+const SAMPLE='data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" fill="#8fd8ff"/><circle cx="320" cy="60" r="36" fill="#ffd23f"/><path d="M0 230Q100 150 200 220T400 200V300H0Z" fill="#4cd38a"/><rect x="90" y="140" width="110" height="90" fill="#ff7b7b"/><path d="M80 142L145 85L210 142Z" fill="#7b4cff"/><rect x="128" y="180" width="32" height="50" fill="#ffd23f"/><circle cx="55" cy="210" r="28" fill="#2fa860"/><rect x="50" y="215" width="10" height="35" fill="#8a5a2b"/><circle cx="260" cy="250" r="9" fill="#ff5d8f"/><circle cx="295" cy="262" r="9" fill="#fff"/><circle cx="60" cy="60" r="18" fill="#fff"/><circle cx="85" cy="66" r="14" fill="#fff"/></svg>');
+
+/* ---------- sound ---------- */
+let actx;
+function beep(f,len=.16){
+  if(!S.sound)return;
+  try{
+    actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    const o=actx.createOscillator(),g=actx.createGain();
+    o.frequency.value=f;o.type='triangle';o.connect(g);g.connect(actx.destination);
+    g.gain.setValueAtTime(.25,actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+len);
+    o.start();o.stop(actx.currentTime+len);
+  }catch(e){}
+}
+
+/* ---------- magnifying glass drawing ---------- */
+function makeLens(parent,src){
+  const el=document.createElement('div');el.className='lens';
+  el.innerHTML='<div class="rot"><div class="handle"></div></div><div class="glass"><img alt=""></div><div class="ring"></div>';
+  parent.appendChild(el);
+  const q=s=>el.querySelector(s),glass=q('.glass'),ring=q('.ring'),handle=q('.handle'),img=q('img');
+  if(src)img.src=src;
+  let D=0;
+  return{
+    el,img,
+    size(d,bw,bh){
+      D=d;
+      Object.assign(glass.style,{width:d+'px',height:d+'px',left:-d/2+'px',top:-d/2+'px'});
+      Object.assign(ring.style,{width:d+'px',height:d+'px',left:-d/2+'px',top:-d/2+'px',borderWidth:d*.07+'px'});
+      Object.assign(handle.style,{width:d*.16+'px',height:d*.6+'px',left:-d*.08+'px',top:d*.44+'px'});
+      Object.assign(img.style,{width:bw+'px',height:bh+'px'});
+    },
+    place(x,y){
+      el.style.transform=`translate(${x}px,${y}px)`;
+      img.style.transform=`translate(${D/2-x}px,${D/2-y}px)`;
+    }
+  };
+}
+
+/* ---------- roaming: heads for parts of the picture not shown yet ---------- */
+class Roamer{
+  reset(bw,bh,d){
+    Object.assign(this,{bw,bh,d,cs:Math.max(8,d*.5),vx:0,vy:0,x:Math.random()*bw,y:Math.random()*bh});
+    this.gc=Math.ceil(bw/this.cs);this.gr=Math.ceil(bh/this.cs);
+    this.seen=new Array(this.gc*this.gr).fill(false);
+    this.mark();this.pick();
+  }
+  cell(x,y){
+    return Math.min(this.gr-1,Math.max(0,Math.floor(y/this.cs)))*this.gc+Math.min(this.gc-1,Math.max(0,Math.floor(x/this.cs)));
+  }
+  mark(){
+    const r=this.d*.45,cs=this.cs;
+    const x0=Math.max(0,Math.floor((this.x-r)/cs)),x1=Math.min(this.gc-1,Math.floor((this.x+r)/cs));
+    const y0=Math.max(0,Math.floor((this.y-r)/cs)),y1=Math.min(this.gr-1,Math.floor((this.y+r)/cs));
+    for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)
+      if(Math.hypot((x+.5)*cs-this.x,(y+.5)*cs-this.y)<=r)this.seen[y*this.gc+x]=true;
+  }
+  pick(){
+    const free=()=>{const f=[];for(let i=0;i<this.seen.length;i++)if(!this.seen[i])f.push(i);return f};
+    let f=free();
+    if(!f.length){this.seen.fill(false);this.mark();f=free()} // everything shown: fresh pass
+    let best=null,bd=Infinity;
+    for(let k=0;k<3;k++){ // nearest of a few random unseen spots
+      const i=f[Math.floor(Math.random()*f.length)];
+      const c={x:((i%this.gc)+.3+Math.random()*.4)*this.cs,y:(Math.floor(i/this.gc)+.3+Math.random()*.4)*this.cs};
+      const dist=Math.hypot(c.x-this.x,c.y-this.y);
+      if(dist<bd){bd=dist;best=c}
+    }
+    this.tx=Math.min(this.bw,best.x);this.ty=Math.min(this.bh,best.y);
+  }
+  step(dt,speed){
+    let dx=this.tx-this.x,dy=this.ty-this.y,dist=Math.hypot(dx,dy);
+    if(dist<this.d*.4||this.seen[this.cell(this.tx,this.ty)]){this.pick();dx=this.tx-this.x;dy=this.ty-this.y;dist=Math.hypot(dx,dy)}
+    const sp=speed*.05*this.bw,k=Math.min(1,dt*(3+speed*.3));
+    this.vx+=((dx/(dist||1))*sp-this.vx)*k;
+    this.vy+=((dy/(dist||1))*sp-this.vy)*k;
+    this.x=Math.min(this.bw,Math.max(0,this.x+this.vx*dt));
+    this.y=Math.min(this.bh,Math.max(0,this.y+this.vy*dt));
+    this.mark();
+  }
+}
+
+/* ---------- demo boxes (intro + settings preview) ---------- */
+function makeDemo(host){
+  host.classList.add('frame');
+  host.innerHTML='<img class="bl" alt="">';
+  host.firstChild.src=SAMPLE;
+  const lens=makeLens(host,SAMPLE),r=new Roamer();
+  let raf=0,last=0,run=false;
+  const applyBlur=()=>host.style.setProperty('--blur',host.clientWidth*S.blur*.001+'px');
+  function loop(t){
+    if(!run)return;
+    const dt=Math.min(.05,(t-last)/1000);last=t;
+    r.step(dt,S.speed);lens.place(r.x,r.y);
+    raf=requestAnimationFrame(loop);
+  }
+  return{
+    start(){
+      cancelAnimationFrame(raf);
+      const w=host.clientWidth,h=host.clientHeight;
+      if(!w)return;
+      applyBlur();
+      const d=S.size/100*Math.min(w,h);
+      lens.size(d,w,h);r.reset(w,h,d);lens.place(r.x,r.y);
+      run=true;last=performance.now();raf=requestAnimationFrame(loop);
+    },
+    stop(){run=false;cancelAnimationFrame(raf)},
+    blur:applyBlur
+  };
+}
+const introDemo=makeDemo($('introDemo')),setDemo=makeDemo($('setDemo'));
+
+/* ---------- settings ---------- */
+const FIELDS=[
+  ['size','🔍 Magnifier size',8,50,v=>v+'%'],
+  ['speed','🚀 Magnifier speed',1,30,v=>v],
+  ['blur','🌫 Blurriness',0,100,v=>v],
+  ['move','⏱ Moving time before countdown',2,60,v=>v+' s'],
+  ['count','🔔 Countdown at the end',1,10,v=>v+' s'],
+  ['ready','🚦 Get-ready countdown',0,10,v=>v?v+' s':'Off']
+];
+FIELDS.forEach(([k,label,min,max,fmt])=>{
+  const row=document.createElement('div');row.className='field';
+  row.innerHTML=`<span>${label}</span><b></b>`;
+  const out=row.querySelector('b');out.textContent=fmt(S[k]);
+  const inp=document.createElement('input');
+  inp.type='range';inp.min=min;inp.max=max;inp.step=1;inp.value=S[k];
+  inp.setAttribute('aria-label',label);
+  inp.oninput=()=>{S[k]=+inp.value;out.textContent=fmt(S[k]);save();if(k==='size')setDemo.start();if(k==='blur')setDemo.blur()};
+  $('fields').append(row,inp);
+});
+const sr=document.createElement('div');sr.className='field';
+sr.innerHTML='<span>🔊 Sound</span><input type="checkbox" aria-label="Sound">';
+const cb=sr.querySelector('input');cb.checked=S.sound;
+cb.onchange=()=>{S.sound=cb.checked;save();if(S.sound)beep(660,.1)};
+$('fields').append(sr);
+
+let modalOpen=false,screen='intro';
+function openSettings(){
+  modalOpen=true;$('modal').style.display='flex';setDemo.start();$('done').focus();
+}
+function closeSettings(){
+  modalOpen=false;$('modal').style.display='none';setDemo.stop();
+  if(screen==='intro')introDemo.start();
+  else if(state!=='running')layout();
+}
+$('openSet').onclick=$('gear').onclick=openSettings;
+$('done').onclick=closeSettings;
+
+/* ---------- the game ---------- */
+let pics=[],idx=0,state='idle',nat={w:1,h:1},bw=0,bh=0,d=100;
+let t0=0,last=0,shown=-1,raf=0,bigTimer=0;
+const box=$('box'),blurImg=$('blur'),lens=makeLens(box,''),roam=new Roamer();
+lens.el.style.display='none';
+
+/* ---------- loading pictures (images/1.jpeg, 2.jpeg, ...) and answers.txt ---------- */
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+function probe(n){
+  return new Promise(res=>{
+    const exts=['jpeg','jpg','JPEG','JPG'];
+    const go=()=>{
+      if(!exts.length)return res(null);
+      const im=new Image(),src=`images/${n}.${exts.shift()}`;
+      im.onload=()=>res(src);im.onerror=go;im.src=src;
+    };go();
+  });
+}
+let answersWhy='';
+function parseAnswers(text){ // lines look like:  1=Computer Lab
+  const map={};
+  text.replace(/^\uFEFF/,'').split(/\r?\n/).forEach(line=>{
+    line=line.trim();
+    if(!line||line[0]==='#')return;
+    const i=line.indexOf('=');
+    if(i>0)map[line.slice(0,i).trim()]=line.slice(i+1).trim();
+  });
+  return map;
+}
+function loadScript(src){
+  return new Promise(res=>{
+    const el=document.createElement('script');
+    el.src=src;el.onload=()=>res(true);el.onerror=()=>res(false);
+    document.head.appendChild(el);
+  });
+}
+async function loadAnswers(){
+  let why='answers.txt has no lines like 1=Computer Lab';
+  try{
+    const r=await fetch('answers.txt',{cache:'no-store'});
+    if(r.ok){const m=parseAnswers(await r.text());if(Object.keys(m).length)return{map:m}}
+    else why='answers.txt was not found next to index.html';
+  }catch(e){why='the browser blocked reading answers.txt (use answers.js when opening from your computer)'}
+  // Fallback that also works when index.html is opened straight from disk
+  if(await loadScript('answers.js')&&typeof window.ANSWERS==='string'){
+    const m=parseAnswers(window.ANSWERS);
+    if(Object.keys(m).length)return{map:m};
+  }
+  return{map:{},why};
+}
+async function loadAll(){
+  const answers=loadAnswers(),list=[];let misses=0;
+  for(let n=1;misses<3;n++){
+    const src=await probe(n);
+    if(src){list.push({n,src});misses=0}else misses++;
+  }
+  const res=await answers;
+  answersWhy=res.why||'';
+  list.forEach(p=>p.answer=res.map[p.n]||'');
+  return list;
+}
+function setPics(list){
+  pics=shuffle(list);idx=0;state='idle';
+  $('status').textContent=`${pics.length} picture${pics.length>1?'s':''} ready`+(pics.some(p=>p.answer)?'':' · no answers: '+answersWhy);
+  $('play').disabled=false;
+}
+
+function setState(s){
+  state=s;const busy=s==='running'||s==='getready';
+  $('start').disabled=!(s==='ready'||s==='go');
+  $('start').textContent=s==='go'?'🔁 Play again':'▶ Start round';
+  $('reveal').disabled=!(s==='ready'||s==='go'||busy);
+  $('next').disabled=!pics.length||busy;
+  $('gear').disabled=busy;
+  $('msg').innerHTML=s==='ready'?'<span class="pill">Press “Start round”</span>':'';
+}
+function layout(){
+  if(!pics.length)return;
+  const st=$('stage'),W=st.clientWidth,H=st.clientHeight,pad=32;
+  const sc=Math.min((W-pad*2)/nat.w,(H-pad*2-26)/nat.h);
+  bw=Math.max(50,nat.w*sc);bh=Math.max(50,nat.h*sc);
+  Object.assign(box.style,{width:bw+'px',height:bh+'px',left:(W-bw)/2+'px',top:(H-bh)/2-8+'px'});
+  box.style.setProperty('--blur',bw*S.blur*.001+'px');
+  $('answer').style.fontSize=Math.max(16,Math.min(44,bw*.055))+'px';
+  d=S.size/100*Math.min(bw,bh);
+  lens.size(d,bw,bh);
+}
+function showPic(){
+  cancelAnimationFrame(raf);clearTimeout(bigTimer);
+  $('big').className='';lens.el.style.display='none';
+  // hide the old answer and blur instantly (no fade) so the next picture never shows sharp
+  box.classList.add('snap');box.classList.remove('revealed');void box.offsetWidth;
+  const p=pics[idx];
+  $('count').textContent=`Picture ${idx+1} of ${pics.length}`;
+  const ans=$('answer');
+  ans.style.display=p.answer?'':'none';
+  ans.replaceChildren('Answer: ',Object.assign(document.createElement('b'),{textContent:p.answer}));
+  const im=new Image();
+  im.onload=()=>{
+    nat={w:im.naturalWidth,h:im.naturalHeight};
+    blurImg.src=lens.img.src=p.src;
+    layout();setState('ready');
+  };
+  im.src=p.src;
+}
+function showBig(txt,cls){
+  const b=$('big');b.className='';void b.offsetWidth;
+  b.textContent=txt;b.className='pop'+(cls?' '+cls:'');
+}
+function startRound(){
+  if(state!=='ready'&&state!=='go')return;
+  clearTimeout(bigTimer);
+  box.classList.remove('revealed');lens.el.style.display='none';
+  layout();shown=-1;t0=last=performance.now();
+  if(S.ready>0){setState('getready');showBig('Ready?','rdy st');beep(440,.12)}
+  else beginRound();
+  raf=requestAnimationFrame(frame);
+}
+function beginRound(){
+  $('big').className='';
+  roam.reset(bw,bh,d);
+  lens.el.style.display='block';lens.place(roam.x,roam.y);
+  t0=last=performance.now();shown=-1;
+  setState('running');beep(520,.1);
+}
+function frame(now){
+  const dt=Math.min(.05,(now-last)/1000);last=now;
+  if(state==='getready'){
+    const el=(now-t0)/1000-1; // the first second shows "Ready?"
+    if(el>=S.ready)beginRound();
+    else if(el>=0){
+      const n=S.ready-Math.floor(el);
+      if(n!==shown){shown=n;showBig(n,'st');beep(440,.12)}
+    }
+    raf=requestAnimationFrame(frame);return;
+  }
+  if(state!=='running')return;
+  const rem=S.move+S.count-(now-t0)/1000;
+  if(rem<=0){endRound();return}
+  roam.step(dt,S.speed);lens.place(roam.x,roam.y);
+  if(rem<=S.count){
+    const n=Math.ceil(rem);
+    if(n!==shown){shown=n;showBig(n);beep(660,.14)}
+  }
+  raf=requestAnimationFrame(frame);
+}
+function endRound(){
+  lens.el.style.display='none';
+  setState('go');showBig('Go!!!','go');beep(988,.5);
+  bigTimer=setTimeout(()=>{$('big').className=''},3000);
+}
+function reveal(){
+  if(state==='revealed'||state==='idle')return;
+  cancelAnimationFrame(raf);clearTimeout(bigTimer);
+  $('big').className='';lens.el.style.display='none';
+  box.classList.remove('snap');void box.offsetWidth; // let the reveal fade in
+  box.classList.add('revealed');
+  setState('revealed');beep(784,.25);
+}
+function next(){
+  if(!pics.length||state==='running'||state==='getready')return;
+  idx=(idx+1)%pics.length;showPic();
+}
+function enterGame(){
+  screen='game';$('intro').style.display='none';introDemo.stop();
+  if(state==='revealed')idx=(idx+1)%pics.length;
+  showPic();
+}
+function showHome(){
+  cancelAnimationFrame(raf);clearTimeout(bigTimer);
+  $('big').className='';lens.el.style.display='none';
+  screen='intro';$('intro').style.display='flex';introDemo.start();
+}
+
+$('start').onclick=startRound;
+$('reveal').onclick=reveal;
+$('next').onclick=next;
+$('home').onclick=showHome;
+$('play').onclick=enterGame;
+window.addEventListener('resize',()=>{
+  layout();
+  if(modalOpen)setDemo.start();else if(screen==='intro')introDemo.start();
+});
+document.addEventListener('keydown',e=>{
+  if(e.code==='Escape'&&modalOpen){closeSettings();return}
+  if(e.code!=='Space'||screen!=='game'||modalOpen||e.target.tagName==='INPUT'||e.target.tagName==='BUTTON')return;
+  e.preventDefault();
+  if(state==='ready')startRound();
+  else if(state==='go')reveal();
+  else if(state==='revealed')next();
+});
+
+introDemo.start();
+(async()=>{
+  const list=await loadAll();
+  if(!list.length){
+    $('status').innerHTML='No pictures found. Put <code>1.jpeg</code>, <code>2.jpeg</code> … in the <code>images</code> folder.';
+    return;
+  }
+  setPics(list);
+})();
+</script>
+</body>
+</html>
