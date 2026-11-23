@@ -58,6 +58,8 @@ footer{display:flex;gap:12px;align-items:center;justify-content:center;padding:1
 #setDemo{width:min(86%,calc(24vh*1.3333));aspect-ratio:4/3}
 .hint{margin:0 0 6px;font-size:14px;opacity:.8}
 .field{display:flex;justify-content:space-between;align-items:center;font-weight:800;margin-top:12px}
+.ctl{display:flex;align-items:center;gap:10px}
+.card input[type=range]:disabled{opacity:.35}
 .field b{background:var(--sun);border:3px solid var(--ink);border-radius:999px;padding:0 12px;min-width:64px}
 .card input[type=range]{width:100%;height:30px;accent-color:var(--pink)}
 .card input[type=checkbox]{width:26px;height:26px;accent-color:var(--pink)}
@@ -107,9 +109,12 @@ code{background:#fff;padding:1px 8px;border-radius:8px;border:2px solid var(--in
 
 <script>
 const $=id=>document.getElementById(id);
-const DEF={size:30,speed:7,blur:35,move:7,count:3,ready:3,sound:true};
+const DEF={size:30,speed:7,blur:35,move:7,count:3,ready:3,countOn:true,readyOn:true,sound:true};
+// countdown lengths in use (0 when switched off)
+const readyLen=()=>S.readyOn?S.ready:0,countLen=()=>S.countOn?S.count:0;
 let S={...DEF};
 try{S={...DEF,...JSON.parse(localStorage.getItem('mystery-magnifier-v2')||'{}')}}catch(e){}
+if(S.ready<1){S.ready=3;S.readyOn=false} // older saves used 0 to mean "off"
 const save=()=>{try{localStorage.setItem('mystery-magnifier-v2',JSON.stringify(S))}catch(e){}};
 
 /* A cheerful sample scene for the previews (never shows your real pictures) */
@@ -242,17 +247,25 @@ const FIELDS=[
   ['speed','🚀 Magnifier speed',1,30,v=>v],
   ['blur','🌫 Blurriness',0,100,v=>v],
   ['move','⏱ Moving time before countdown',2,60,v=>v+' s'],
-  ['count','🔔 Countdown at the end',1,10,v=>v+' s'],
-  ['ready','🚦 Get-ready countdown',0,10,v=>v?v+' s':'Off']
+  ['ready','🚦 Countdown at the start',1,10,v=>v+' s','readyOn'],
+  ['count','🔔 Countdown at the end',1,10,v=>v+' s','countOn']
 ];
-FIELDS.forEach(([k,label,min,max,fmt])=>{
+FIELDS.forEach(([k,label,min,max,fmt,on])=>{
   const row=document.createElement('div');row.className='field';
-  row.innerHTML=`<span>${label}</span><b></b>`;
-  const out=row.querySelector('b');out.textContent=fmt(S[k]);
+  row.innerHTML=`<span>${label}</span><span class="ctl"><b></b></span>`;
+  const out=row.querySelector('b');
   const inp=document.createElement('input');
-  inp.type='range';inp.min=min;inp.max=max;inp.step=1;inp.value=S[k];
+  inp.type='range';inp.min=min;inp.max=max;inp.step=1;inp.value=Math.max(min,S[k]);
   inp.setAttribute('aria-label',label);
-  inp.oninput=()=>{S[k]=+inp.value;out.textContent=fmt(S[k]);save();if(k==='size')setDemo.start();if(k==='blur')setDemo.blur()};
+  const show=()=>{out.textContent=on&&!S[on]?'Off':fmt(S[k]);inp.disabled=!!on&&!S[on]};
+  if(on){ // on/off switch for the countdowns
+    const t=document.createElement('input');t.type='checkbox';t.checked=S[on];
+    t.setAttribute('aria-label',label+' on or off');
+    t.onchange=()=>{S[on]=t.checked;save();show()};
+    row.querySelector('.ctl').prepend(t);
+  }
+  inp.oninput=()=>{S[k]=+inp.value;save();show();if(k==='size')setDemo.start();if(k==='blur')setDemo.blur()};
+  show();
   $('fields').append(row,inp);
 });
 const sr=document.createElement('div');sr.className='field';
@@ -387,7 +400,7 @@ function startRound(){
   clearTimeout(bigTimer);
   box.classList.remove('revealed');lens.el.style.display='none';
   layout();shown=-1;t0=last=performance.now();
-  if(S.ready>0){setState('getready');showBig('Ready?','rdy st');beep(440,.12)}
+  if(readyLen()>0){setState('getready');showBig('Ready?','rdy st');beep(440,.12)}
   else beginRound();
   raf=requestAnimationFrame(frame);
 }
@@ -402,18 +415,18 @@ function frame(now){
   const dt=Math.min(.05,(now-last)/1000);last=now;
   if(state==='getready'){
     const el=(now-t0)/1000-1; // the first second shows "Ready?"
-    if(el>=S.ready)beginRound();
+    if(el>=readyLen())beginRound();
     else if(el>=0){
-      const n=S.ready-Math.floor(el);
+      const n=readyLen()-Math.floor(el);
       if(n!==shown){shown=n;showBig(n,'st');beep(440,.12)}
     }
     raf=requestAnimationFrame(frame);return;
   }
   if(state!=='running')return;
-  const rem=S.move+S.count-(now-t0)/1000;
+  const rem=S.move+countLen()-(now-t0)/1000;
   if(rem<=0){endRound();return}
   roam.step(dt,S.speed);lens.place(roam.x,roam.y);
-  if(rem<=S.count){
+  if(rem<=countLen()){
     const n=Math.ceil(rem);
     if(n!==shown){shown=n;showBig(n);beep(660,.14)}
   }
