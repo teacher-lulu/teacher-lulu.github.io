@@ -107,10 +107,10 @@ code{background:#fff;padding:1px 8px;border-radius:8px;border:2px solid var(--in
 
 <script>
 const $=id=>document.getElementById(id);
-const DEF={size:20,speed:5,blur:35,move:7,count:3,ready:3,sound:true};
+const DEF={size:30,speed:7,blur:35,move:7,count:3,ready:3,sound:true};
 let S={...DEF};
-try{S={...DEF,...JSON.parse(localStorage.getItem('mystery-magnifier')||'{}')}}catch(e){}
-const save=()=>{try{localStorage.setItem('mystery-magnifier',JSON.stringify(S))}catch(e){}};
+try{S={...DEF,...JSON.parse(localStorage.getItem('mystery-magnifier-v2')||'{}')}}catch(e){}
+const save=()=>{try{localStorage.setItem('mystery-magnifier-v2',JSON.stringify(S))}catch(e){}};
 
 /* A cheerful sample scene for the previews (never shows your real pictures) */
 const SAMPLE='data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" fill="#8fd8ff"/><circle cx="320" cy="60" r="36" fill="#ffd23f"/><path d="M0 230Q100 150 200 220T400 200V300H0Z" fill="#4cd38a"/><rect x="90" y="140" width="110" height="90" fill="#ff7b7b"/><path d="M80 142L145 85L210 142Z" fill="#7b4cff"/><rect x="128" y="180" width="32" height="50" fill="#ffd23f"/><circle cx="55" cy="210" r="28" fill="#2fa860"/><rect x="50" y="215" width="10" height="35" fill="#8a5a2b"/><circle cx="260" cy="250" r="9" fill="#ff5d8f"/><circle cx="295" cy="262" r="9" fill="#fff"/><circle cx="60" cy="60" r="18" fill="#fff"/><circle cx="85" cy="66" r="14" fill="#fff"/></svg>');
@@ -172,15 +172,25 @@ class Roamer{
       if(Math.hypot((x+.5)*cs-this.x,(y+.5)*cs-this.y)<=r)this.seen[y*this.gc+x]=true;
   }
   pick(){
-    const free=()=>{const f=[];for(let i=0;i<this.seen.length;i++)if(!this.seen[i])f.push(i);return f};
-    let f=free();
-    if(!f.length){this.seen.fill(false);this.mark();f=free()} // everything shown: fresh pass
-    let best=null,bd=Infinity;
-    for(let k=0;k<3;k++){ // nearest of a few random unseen spots
-      const i=f[Math.floor(Math.random()*f.length)];
-      const c={x:((i%this.gc)+.3+Math.random()*.4)*this.cs,y:(Math.floor(i/this.gc)+.3+Math.random()*.4)*this.cs};
-      const dist=Math.hypot(c.x-this.x,c.y-this.y);
-      if(dist<bd){bd=dist;best=c}
+    // Score every unseen spot: how much unseen picture the glass would show there,
+    // divided by how far away it is. Nearby spots with lots of new picture win,
+    // so the glass sweeps fresh areas instead of crossing back over old ones.
+    const cs=this.cs,gc=this.gc,gr=this.gr,r=this.d*.9,R=Math.ceil(r/cs); // look a bit past the glass edge
+    if(!this.seen.some(v=>!v)){this.seen.fill(false);this.mark()} // everything shown: fresh pass
+    const sp=Math.hypot(this.vx,this.vy);
+    let best=null,bs=-1;
+    for(let i=0;i<this.seen.length;i++){
+      if(this.seen[i])continue;
+      const cx=i%gc,cy=Math.floor(i/gc),x=(cx+.5)*cs,y=(cy+.5)*cs;
+      let gain=0;
+      for(let yy=Math.max(0,cy-R);yy<=Math.min(gr-1,cy+R);yy++)
+        for(let xx=Math.max(0,cx-R);xx<=Math.min(gc-1,cx+R);xx++)
+          if(!this.seen[yy*gc+xx]&&Math.hypot((xx-cx)*cs,(yy-cy)*cs)<=r)gain++;
+      const dx=x-this.x,dy=y-this.y,dist=Math.hypot(dx,dy);
+      // small bonus for keeping the same direction, so the path stays smooth
+      const ahead=sp>1&&dist>0?(dx*this.vx+dy*this.vy)/(dist*sp):0;
+      const score=gain*(1+ahead)*(.85+Math.random()*.3)/Math.pow(1+dist/this.d,2);
+      if(score>bs){bs=score;best={x,y}}
     }
     this.tx=Math.min(this.bw,best.x);this.ty=Math.min(this.bh,best.y);
   }
@@ -269,11 +279,11 @@ let t0=0,last=0,shown=-1,raf=0,bigTimer=0;
 const box=$('box'),blurImg=$('blur'),lens=makeLens(box,''),roam=new Roamer();
 lens.el.style.display='none';
 
-/* ---------- loading pictures (images/1.jpeg, 2.jpeg, ...) and answers.txt ---------- */
+/* ---------- loading pictures (images/1.png, 2.png, ... or .jpeg) and answers.txt ---------- */
 const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
 function probe(n){
   return new Promise(res=>{
-    const exts=['jpeg','jpg','JPEG','JPG'];
+    const exts=['jpeg','jpg','png','JPEG','JPG','PNG'];
     const go=()=>{
       if(!exts.length)return res(null);
       const im=new Image(),src=`images/${n}.${exts.shift()}`;
@@ -459,7 +469,7 @@ introDemo.start();
 (async()=>{
   const list=await loadAll();
   if(!list.length){
-    $('status').innerHTML='No pictures found. Put <code>1.jpeg</code>, <code>2.jpeg</code> … in the <code>images</code> folder.';
+    $('status').innerHTML='No pictures found. Put <code>1.png</code>, <code>2.png</code> … in the <code>images</code> folder.';
     return;
   }
   setPics(list);
